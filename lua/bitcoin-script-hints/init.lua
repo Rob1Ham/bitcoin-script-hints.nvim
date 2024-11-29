@@ -111,8 +111,11 @@ local function process_script_content(node, bufnr, namespace)
 
     -- Process each operation:
     for i, line in ipairs(lines) do
-      local cleaned_line = line:match("^%s*(.-)%s*$") -- remove whitespace chars
+      local cleaned_line = line:match("^%s*(.-)%s*$"):gsub("//.*", "") -- remove whitespace chars and rust comments
       local op = cleaned_line:match("OP_%w+")
+      local hex_value = cleaned_line:match("0x%x+")
+
+      local render_line = start_row + i - 2
 
       if op then
         local should_execute
@@ -122,13 +125,21 @@ local function process_script_content(node, bufnr, namespace)
         if should_execute and branch_state.executing and op_effects[op] then
           current_state = op_effects[op](current_state) -- new state
 
-          render_hint(bufnr, namespace, start_row + i - 2, current_state)
+          render_hint(bufnr, namespace, render_line, current_state)
 
           -- If we get an error, stop processing
           if current_state.error then
             break
           end
         end
+      elseif hex_value then
+        current_state = (function(state)
+          local new_state = vim.deepcopy(state)
+          table.insert(new_state.main, hex_value)
+          return new_state
+        end)(current_state)
+
+        render_hint(bufnr, namespace, render_line, current_state)
       end
 
       current_line = current_line + 1
