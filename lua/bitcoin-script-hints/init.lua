@@ -79,6 +79,36 @@ local function handle_branch_operation(op, branch_state, current_state)
   return current_state, true -- true means "show hint"
 end
 
+-- for hex values etc...
+local function push_raw_value(state, raw_value)
+  local new_state = vim.deepcopy(state)
+  table.insert(new_state.main, raw_value)
+  return new_state
+end
+
+local function process_line(line, current_state, branch_state)
+  local cleaned_line = line:match("^%s*(.-)%s*$"):gsub("//.*", "") -- remove whitespace chars and rust comments
+  local op = cleaned_line:match("OP_%w+")
+  local hex_value = cleaned_line:match("0x%x+")
+
+  if op then
+    local should_execute
+    current_state, should_execute = handle_branch_operation(op, branch_state, current_state)
+
+    -- Only execute and show hints for operations in the active branch
+    if should_execute and branch_state.executing and op_effects[op] then
+      current_state = op_effects[op](current_state) -- new state
+      return current_state, true
+    end
+  elseif hex_value then
+    current_state = push_raw_value(current_state, hex_value)
+    return current_state, true
+  end
+
+  return current_state, false
+end
+
+
 local function process_script_content(node, bufnr, namespace)
   -- Get start position:
   local start_row = node:range()
@@ -111,35 +141,14 @@ local function process_script_content(node, bufnr, namespace)
 
     -- Process each operation:
     for i, line in ipairs(lines) do
-      local cleaned_line = line:match("^%s*(.-)%s*$"):gsub("//.*", "") -- remove whitespace chars and rust comments
-      local op = cleaned_line:match("OP_%w+")
-      local hex_value = cleaned_line:match("0x%x+")
-
       local render_line = start_row + i - 2
+      local new_state, should_render = process_line(line, current_state, branch_state)
 
-      if op then
-        local should_execute
-        current_state, should_execute = handle_branch_operation(op, branch_state, current_state)
+      current_state = new_state
 
-        -- Only execute and show hints for operations in the active branch
-        if should_execute and branch_state.executing and op_effects[op] then
-          current_state = op_effects[op](current_state) -- new state
-
-          render_hint(bufnr, namespace, render_line, current_state)
-
-          -- If we get an error, stop processing
-          if current_state.error then
-            break
-          end
-        end
-      elseif hex_value then
-        current_state = (function(state)
-          local new_state = vim.deepcopy(state)
-          table.insert(new_state.main, hex_value)
-          return new_state
-        end)(current_state)
-
+      if should_render then
         render_hint(bufnr, namespace, render_line, current_state)
+        if current_state.error then break end
       end
 
       current_line = current_line + 1
