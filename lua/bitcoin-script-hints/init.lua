@@ -66,14 +66,18 @@ local function handle_branch_operation(op, branch_state, current_state)
     branch_state.executing = not current_state.error and current_state.if_result
     return current_state, false -- false means "don't show hint"
   elseif op == "OP_ELSE" then
-    branch_state.in_if = false
-    branch_state.in_else = true
-    branch_state.executing = not branch_state.executing
+    if branch_state.in_if then
+      branch_state.in_if = false
+      branch_state.in_else = true
+      branch_state.executing = not branch_state.executing
+    end
     return current_state, false
   elseif op == "OP_ENDIF" then
-    branch_state.in_if = false
-    branch_state.in_else = false
-    branch_state.executing = true
+    if branch_state.in_if or branch_state.in_else then
+      branch_state.in_if = false
+      branch_state.in_else = false
+      branch_state.executing = true
+    end
     return current_state, false
   end
   return current_state, true -- true means "show hint"
