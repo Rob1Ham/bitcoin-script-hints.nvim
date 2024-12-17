@@ -61,26 +61,26 @@ end
 
 local function handle_branch_operation(op, branch_state, current_state)
   if op == "OP_IF" or op == "OP_NOTIF" then
-    branch_state.in_if = true
     current_state = op_effects[op](current_state)
-    branch_state.executing = not current_state.error and current_state.if_result
-    return current_state, false -- false means "don't show hint"
+    branch_state.in_if = true
+    branch_state.executing = not current_state.error and current_state.branch_state.executing
+    return current_state, branch_state.executing
   elseif op == "OP_ELSE" then
     if branch_state.in_if then
       branch_state.in_if = false
       branch_state.in_else = true
       branch_state.executing = not branch_state.executing
     end
-    return current_state, false
+    return current_state, branch_state.executing
   elseif op == "OP_ENDIF" then
     if branch_state.in_if or branch_state.in_else then
       branch_state.in_if = false
       branch_state.in_else = false
       branch_state.executing = true
     end
-    return current_state, false
+    return current_state, branch_state.executing
   end
-  return current_state, true -- true means "show hint"
+  return current_state, branch_state.executing
 end
 
 -- for hex values etc...
@@ -96,11 +96,10 @@ local function process_line(line, current_state, branch_state)
   local hex_value = cleaned_line:match("0x%x+")
 
   if op then
-    local should_execute
     current_state, should_execute = handle_branch_operation(op, branch_state, current_state)
 
     -- Only execute and show hints for operations in the active branch
-    if should_execute and branch_state.executing then
+    if should_execute then
       if op_effects[op] then
         current_state = op_effects[op](current_state)
         return current_state, true
