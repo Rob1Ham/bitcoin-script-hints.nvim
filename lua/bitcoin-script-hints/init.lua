@@ -96,11 +96,17 @@ local function process_line(line, current_state, branch_state)
     current_state, should_execute = handle_branch_operation(op, branch_state, current_state)
 
     -- Only execute and show hints for operations in the active branch
-    if should_execute and branch_state.executing and op_effects[op] then
-      current_state = op_effects[op](current_state) -- new state
-      return current_state, true
+    if should_execute and branch_state.executing then
+      if op_effects[op] then
+        current_state = op_effects[op](current_state)
+        return current_state, true
+      else
+        -- Handle unknown opcodes
+        print("Unknown opcode: " .. op)
+        return current_state, false
+      end
     end
-  elseif hex_value then
+  elseif hex_value and branch_state.executing then
     current_state = push_raw_value(current_state, hex_value)
     return current_state, true
   end
