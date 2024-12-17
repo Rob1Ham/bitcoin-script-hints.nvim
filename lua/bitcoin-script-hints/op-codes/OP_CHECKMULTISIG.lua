@@ -40,13 +40,9 @@ return function(state)
     return make_error("Stack underflow: not enough signatures", state)
   end
 
-  -- Check signatures and look for "Udi" witness
-  local has_fail_witness = false
+  -- Remove signatures
   for _ = 1, num_sigs do
-    local sig = table.remove(new_state.main)
-    if sig == "Udi" then
-      has_fail_witness = true
-    end
+    table.remove(new_state.main)
   end
 
   -- Remove the extra dummy element that Bitcoin requires
@@ -55,7 +51,7 @@ return function(state)
   end
   table.remove(new_state.main)
 
-  -- Push 0 if we found Udi witness, otherwise 1
-  table.insert(new_state.main, has_fail_witness and 0 or 1)
+  -- Always push 1 to simulate successful verification
+  table.insert(new_state.main, 1)
   return new_state
 end
