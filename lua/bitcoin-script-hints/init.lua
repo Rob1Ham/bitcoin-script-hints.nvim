@@ -80,7 +80,11 @@ local function handle_branch_operation(op, branch_state, current_state)
 end
 
 -- for hex values etc...
-local function push_raw_value(state, raw_value)
+local function push_raw_value(state, raw_value, branch_state)
+  if branch_state and not branch_state.executing then
+    -- We're in a non-executing branch, don't push the data
+    return state
+  end
   local new_state = vim.deepcopy(state)
   table.insert(new_state.main, raw_value)
   return new_state
@@ -101,8 +105,8 @@ local function process_line(line, current_state, branch_state)
       return current_state, true
     end
   elseif hex_value then
-    current_state = push_raw_value(current_state, hex_value)
-    return current_state, true
+    current_state = push_raw_value(current_state, hex_value, branch_state)
+    return current_state, branch_state.executing
   end
 
   return current_state, false
